@@ -5,7 +5,7 @@ set -e
 # Variáveis padrão
 # -------------------------------
 export AWS_REGION=${AWS_DEFAULT_REGION:-us-east-1}
-export THING_NAME=${THING_NAME:-"MeuCoreWSLDockerV2"}
+export THING_NAME=${THING_NAME:-<YOUR_THING_NAME>}
 GGC_DIR=/greengrass/v2
 COMPONENTS_DIR=$GGC_DIR/components
 THING_CERTS=$GGC_DIR/thing-certs
