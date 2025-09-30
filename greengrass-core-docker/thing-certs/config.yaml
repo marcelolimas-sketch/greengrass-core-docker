@@ -1,0 +1,14 @@
+---
+system:
+  certificateFilePath: "{{config_dir}}/device.pem.crt"
+  privateKeyPath: "{{config_dir}}/private.pem.key"
+  rootCaPath: "{{config_dir}}/AmazonRootCA1.pem"
+  thingName: "MeuCoreWSLDockerV2"
+services:
+  {{nucleus_component}}:
+    componentType: "NUCLEUS"
+    configuration:
+      awsRegion: "us-east-1"
+      iotRoleAlias: "GreengrassV2TokenExchangeCoreDeviceRoleAlias"
+      iotDataEndpoint: "a3eeq0wsemmcux-ats.iot.us-east-1.amazonaws.com"
+      iotCredEndpoint: "crn46gtf46laz.credentials.iot.us-east-1.amazonaws.com"

@@ -1,0 +1,15 @@
+RecipeFormatVersion: '2020-01-25'
+ComponentName: com.projeto.ml-inference
+ComponentVersion: '1.0.0'
+ComponentDescription: "Inferência de áudio com Wav2Vec2 + PCA/MLP e publicação MQTT via Greengrass IPC"
+ComponentPublisher: "Vilar"
+
+Manifests:
+  - Platform:
+      os: linux
+    Lifecycle:
+      Run: "python3 {artifacts:path}/inference.py"
+    Artifacts:
+      - URI: "file://inference.py"
+      - URI: "file://publish_mqtt.py"
+      - URI: "file://modelos/"
