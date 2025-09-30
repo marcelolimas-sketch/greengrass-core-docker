@@ -11,89 +11,77 @@ Os resultados das inferências são publicados em tópicos **MQTT** no **AWS IoT
 
 ## Pré-requisitos
 - Conta AWS ativa
-- Windows 10/11 com **WSL 2** e distribuição **Ubuntu 22.04 LTS** instalada
+- Windows 10/11 com **WSL 2** e distribuição **Ubuntu 22.04 LTS**
 - **Docker Engine** instalado no WSL
 - **AWS CLI** configurada (`aws configure`)
 - **Python 3.8+**, `pip` e bibliotecas (`torch`, `transformers`, `librosa`, `joblib`, etc.)
 - Java JRE instalado (`default-jre`)
 
-## Roteiro
+## Roteiro Passo a Passo
 
-### Passo A — Preparar e validar o ambiente local
+### 1 - Treinamento do modelo wav2vec2
+- Criar ambiente virtual Python, instalar dependências (`torch`, `transformers`, `datasets`, `librosa`).
+- Carregar dataset (ex.: Google Speech Commands).
+- Fine-tunar modelo `wav2vec2` ou usar pré-treinado.
+- Salvar modelo e processor em `modelos/wav2vec2_finetuned/`.
+
+### 2 - Aplicação do PCA
+- Extrair embeddings do wav2vec2 (média temporal das hidden states).
+- Ajustar PCA (`sklearn.decomposition.PCA`) preservando ~95% da variância.
+- Salvar em `modelos/pca_model.pkl`.
+- Confirmar número de componentes (ex.: 116).
+
+### 3 - Inferência com áudios do diretório `áudio/`
+- Implementar `inference.py`:
+  - Carrega wav2vec2, PCA e MLP treinado.
+  - Extrai embedding → reduz com PCA → classifica com MLP.
+  - Itera sobre `áudio/*.wav` e mostra rótulos previstos.
+- Testar localmente:
+```bash
+python3 inference.py
+```
+
+### 4 - Preparação do ambiente para implementar o Greengrass V2 (Docker e Python no WSL)
+- Instalar pacotes:
 ```bash
 sudo apt update
-sudo apt install -y python3 python3-pip docker.io unzip default-jre
-docker --version
-python3 --version
+sudo apt install -y default-jre docker.io python3 python3-pip unzip
+```
+- Adicionar usuário ao grupo docker:
+```bash
 sudo usermod -aG docker $USER
-# reabra o terminal para aplicar a mudança de grupo
+```
+- Criar usuários Greengrass:
+```bash
 sudo adduser --system ggc_user || true
 sudo addgroup --system ggc_group || true
 ```
+- Configurar AWS CLI (`aws configure`).
 
-### Passo B — Gerenciar os componentes no container (resolvendo problema de diretórios ausentes)
-Quando se monta um volume em `/greengrass/v2`, ele **sobrescreve** o conteúdo copiado no build da imagem.  
-Duas opções seguras:
-
-**Opção 1 (recomendada): povoar o volume após o build**
+### 5 - Build da imagem Docker apropriada via `Dockerfile`
+- Exemplo de `Dockerfile`:
+```dockerfile
+FROM ubuntu:22.04
+RUN apt-get update && apt-get install -y default-jre python3 python3-pip docker.io unzip
+RUN adduser --system ggc_user && addgroup --system ggc_group
+WORKDIR /greengrass/v2
+COPY start-greengrass.sh /usr/local/bin/start-greengrass.sh
+RUN chmod +x /usr/local/bin/start-greengrass.sh
+ENTRYPOINT ["/usr/local/bin/start-greengrass.sh"]
+```
+- Build da imagem:
 ```bash
 docker build -t greengrass-v2-core .
-
-docker run -d --name greengrass-core-device \
-  -e AWS_ACCESS_KEY_ID=... -e AWS_SECRET_ACCESS_KEY=... -e AWS_DEFAULT_REGION=... \
-  -e THING_NAME=MeuThing \
-  -v greengrass-v2-data:/greengrass/v2 \
-  -v /tmp/greengrass-ipc:/tmp/greengrass-ipc \
-  -v /var/run/docker.sock:/var/run/docker.sock \
-  greengrass-v2-core
-
-# copiar componentes para o volume
-docker run --rm -v $(pwd)/components:/src -v greengrass-v2-data:/data alpine \
-  sh -c "mkdir -p /data/greengrass/v2/components && cp -r /src/* /data/greengrass/v2/components/"
 ```
 
-**Opção 2: bind-mount do diretório de componentes (bom para desenvolvimento)**
+### 6 - Criação do componente Greengrass + iniciação (`start-greengrass.sh`)
+- `start-greengrass.sh`:
 ```bash
-docker run -it --rm --name greengrass-core-device \
-  -v $(pwd)/components:/greengrass/v2/components \
-  greengrass-v2-core
+#!/bin/bash
+set -e
+exec java -Droot="/greengrass/v2" -Dlog.store=FILE -jar /greengrass/v2/lib/Greengrass.jar --start
 ```
-
-### Passo C — Provisionamento e verificação do Greengrass Core
-1. Baixar o **connection kit** e o **installer** no console AWS IoT.  
-2. Dentro do container ou no WSL, descompactar:
-```bash
-unzip greengrass-nucleus-latest.zip -d GreengrassInstaller
-sudo mkdir -p /greengrass/v2
-sudo unzip MeuCore-connectionKit.zip -d /greengrass/v2
-```
-3. Instalar o Nucleus:
-```bash
-sudo -E java -Droot="/greengrass/v2" -Dlog.store=FILE \
-  -jar ./GreengrassInstaller/lib/Greengrass.jar \
-  --init-config /greengrass/v2/config.yaml \
-  --component-default-user ggc_user:ggc_group \
-  --setup-system-service true
-```
-4. Verificar se está rodando:
-```bash
-sudo tail -f /greengrass/v2/logs/greengrass.log
-```
-
-### Passo D — Criar o componente de ML (inference)
-1. Organizar diretórios:
-```
-components/
-├── modelos/    (PCA e MLP treinados)
-├── audio/      (amostras para teste)
-└── inference.py
-```
-2. Empacotar artefatos e enviar para S3:
-```bash
-zip -r model_and_code.zip inference.py modelos/ audio/
-aws s3 cp model_and_code.zip s3://<SEU_BUCKET>/artifacts/com.projeto.ml-inference/1.0.0/
-```
-3. Criar `recipe.json` com `accessControl` para `mqttproxy`:
+- `recipe.json` (trecho relevante):
 ```json
 "ComponentConfiguration": {
   "DefaultConfiguration": {
@@ -108,24 +96,33 @@ aws s3 cp model_and_code.zip s3://<SEU_BUCKET>/artifacts/com.projeto.ml-inferenc
   }
 }
 ```
-4. Registrar no Greengrass:
+- Empacotar artefatos e enviar para S3:
+```bash
+zip -r model_and_code.zip inference.py modelos/ áudio/ requirements.txt
+aws s3 cp model_and_code.zip s3://<SEU_BUCKET>/artifacts/com.projeto.ml-inference/1.0.0/
+```
+- Criar componente:
 ```bash
 aws greengrassv2 create-component-version --inline-recipe file://recipe.json
 ```
 
-### Passo E — Implantar e testar
-1. Criar *deployment* no console AWS IoT Greengrass, selecionando o Core Device e o componente.  
-2. Verificar logs:
+### 7 - Testes sugeridos
+- **Teste local:** executar `inference.py` e confirmar previsões.
+- **Verificar artefatos dentro do container:**
 ```bash
+docker exec -it greengrass-core-device ls -la /greengrass/v2/components
+```
+- **Logs:**
+```bash
+docker exec -it greengrass-core-device tail -f /greengrass/v2/logs/greengrass.log
 docker exec -it greengrass-core-device tail -f /greengrass/v2/logs/com.projeto.ml-inference.log
 ```
-3. Testar publicação no console AWS IoT → Test → MQTT client → assine `ml/inference`.
+- **MQTT client (AWS IoT Core):** assinar tópico `ml/inference` e observar publicações.
 
-### Passo F — Diagnóstico para falhas de publicação
-- Verificar se o socket IPC existe em `/tmp/greengrass-ipc`.  
-- Confirmar se a role IAM do Core Device possui permissões `iot:Publish` para o tópico usado.  
-- Rodar teste manual de publicação dentro do container para validar o IPC.  
-- Conferir se o recipe contém `accessControl` corretamente configurado.
+### 8 - Verificação de falhas
+- **Falha no publish MQTT via IPC:** revisar `accessControl` no recipe, role IAM do Core Device (`iot:Publish`, `iot:Connect`, `s3:GetObject`).
+- **Arquivos não aparecem em `/greengrass/v2/components`:** povoar volume `greengrass-v2-data` após `docker run` ou usar bind-mount.
+- **Erros em dependências:** incluir `requirements.txt` e ajustar recipe (`Install` com `pip install`).
 
 ## Métricas
 - Dataset: **Google Speech Commands** (8 palavras, ~4000 áudios).  
@@ -137,12 +134,9 @@ docker exec -it greengrass-core-device tail -f /greengrass/v2/logs/com.projeto.m
 - Publicação MQTT validada no AWS IoT Core.
 
 ## Limpeza
-Para remover os recursos criados:
 ```bash
 aws greengrassv2 delete-deployment --deployment-id <id>
 aws iot delete-thing --thing-name MeuCoreWSLV2
 docker rm -f greengrass-core-device
-docker volume rm greengrass-v2-data
-```
 docker volume rm greengrass-v2-data
 ```
