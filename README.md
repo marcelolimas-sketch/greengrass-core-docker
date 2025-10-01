@@ -96,15 +96,6 @@ exec java -Droot="/greengrass/v2" -Dlog.store=FILE -jar /greengrass/v2/lib/Green
   }
 }
 ```
-- Empacotar artefatos e enviar para S3:
-```bash
-zip -r model_and_code.zip inference.py modelos/ áudio/ requirements.txt
-aws s3 cp model_and_code.zip s3://<SEU_BUCKET>/artifacts/com.projeto.ml-inference/1.0.0/
-```
-- Criar componente:
-```bash
-aws greengrassv2 create-component-version --inline-recipe file://recipe.json
-```
 
 ### 7 - Testes sugeridos
 - **Teste local:** executar `inference.py` e confirmar previsões.
@@ -140,3 +131,7 @@ aws iot delete-thing --thing-name MeuCoreWSLV2
 docker rm -f greengrass-core-device
 docker volume rm greengrass-v2-data
 ```
+
+## Referência completa do projeto
+Para uma análise detalhada da implementação, desafios e resultados obtidos neste projeto, consulte o relatório completo do trabalho final disponível em:
+https://drive.google.com/file/d/1UwNsYPePgyaC6Nqp4JXKp6taHG-rkjUZ/view?usp=sharing
