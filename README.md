@@ -107,13 +107,12 @@ docker exec -it greengrass-core-device tail -f /greengrass/v2/logs/com.projeto.m
 - Resultados de teste:  
   - **Acurácia sem PCA:** 89,25%  
   - **Acurácia com PCA:** 90,38%  
-- PCA reduziu dimensionalidade (768 → 116) e acelerou convergência.  
-- Publicação MQTT validada no AWS IoT Core.
+- PCA reduziu dimensionalidade (768 → 116) e acelerou convergência.
 
 ## Limpeza
 ```bash
 aws greengrassv2 delete-deployment --deployment-id <id>
-aws iot delete-thing --thing-name MeuCoreWSLV2
+aws iot delete-thing --thing-name <YOUR_THING_NAME>
 docker rm -f greengrass-core-device
 docker volume rm greengrass-v2-data
 ```
