@@ -81,8 +81,8 @@ docker build -t greengrass-v2-core .
 set -e
 exec java -Droot="/greengrass/v2" -Dlog.store=FILE -jar /greengrass/v2/lib/Greengrass.jar --start
 ```
-- `recipe.json` (trecho relevante):
-```json
+- `recipe.yaml` (trecho relevante):
+```yaml
 "ComponentConfiguration": {
   "DefaultConfiguration": {
     "accessControl": {
