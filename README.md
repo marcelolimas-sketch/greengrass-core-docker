@@ -74,7 +74,7 @@ ENTRYPOINT ["/usr/local/bin/start-greengrass.sh"]
 docker build -t greengrass-v2-core .
 ```
 
-### 6 - Criação do componente Greengrass + inicialização (`start-greengrass.sh`)
+### 6 - Criação da receita do componente Greengrass + inicialização (`start-greengrass.sh`)
 - `start-greengrass.sh`:
 ```bash
 #!/bin/bash
@@ -82,20 +82,6 @@ set -e
 exec java -Droot="/greengrass/v2" -Dlog.store=FILE -jar /greengrass/v2/lib/Greengrass.jar --start
 ```
 - `recipe.yaml` (trecho relevante):
-```yaml
-"ComponentConfiguration": {
-  "DefaultConfiguration": {
-    "accessControl": {
-      "aws.greengrass.ipc.mqttproxy": {
-        "com.projeto.ml-inference:mqttproxy:1": {
-          "operations": [ "aws.greengrass.ipc.mqttproxy:PublishToIoTCore" ],
-          "resources": ["*"]
-        }
-      }
-    }
-  }
-}
-```
 
 ### 7 - Testes sugeridos
 - **Teste local:** executar `inference.py` e confirmar previsões.
