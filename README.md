@@ -74,7 +74,7 @@ ENTRYPOINT ["/usr/local/bin/start-greengrass.sh"]
 docker build -t greengrass-v2-core .
 ```
 
-### 6 - Criação do componente Greengrass + iniciação (`start-greengrass.sh`)
+### 6 - Criação do componente Greengrass + inicialização (`start-greengrass.sh`)
 - `start-greengrass.sh`:
 ```bash
 #!/bin/bash
